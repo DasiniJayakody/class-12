@@ -1,6 +1,6 @@
 """Agent implementations for the multi-agent RAG flow.
 
-This module defines three LangChain agents (Retrieval, Summarization,
+This module defines four LangChain agents (Planning, Retrieval, Summarization,
 Verification) and thin node functions that LangGraph uses to invoke them.
 """
 
@@ -11,6 +11,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from ..llm.factory import create_chat_model
 from .prompts import (
+    PLANNING_SYSTEM_PROMPT,
     RETRIEVAL_SYSTEM_PROMPT,
     SUMMARIZATION_SYSTEM_PROMPT,
     VERIFICATION_SYSTEM_PROMPT,
@@ -27,7 +28,45 @@ def _extract_last_ai_content(messages: List[object]) -> str:
     return ""
 
 
+def _extract_sub_questions(plan_text: str) -> list[str]:
+    """Extract sub-questions from the planning agent's output.
+
+    Looks for lines that appear to be sub-questions (starting with dashes, asterisks,
+    or numbered items in the SUB-QUESTIONS section).
+    """
+    sub_questions = []
+    in_sub_questions_section = False
+
+    for line in plan_text.split("\n"):
+        line = line.strip()
+
+        # Detect sub-questions section
+        if "SUB-QUESTION" in line.upper() or "sub-question" in line.lower():
+            in_sub_questions_section = True
+            continue
+
+        # Exit section if we hit another section header or empty lines followed by uppercase
+        if in_sub_questions_section and line and (line[0].isupper() and ":" in line):
+            if "SUB-QUESTION" not in line.upper():
+                in_sub_questions_section = False
+
+        # Extract sub-questions
+        if in_sub_questions_section and line:
+            # Remove common prefixes like "- ", "* ", "1. ", etc.
+            cleaned = line.lstrip("0123456789.-*) ")
+            if cleaned and len(cleaned) > 5:  # Filter out very short lines
+                sub_questions.append(cleaned)
+
+    return sub_questions if sub_questions else []
+
+
 # Define agents at module level for reuse
+planning_agent = create_agent(
+    model=create_chat_model(),
+    tools=[],
+    system_prompt=PLANNING_SYSTEM_PROMPT,
+)
+
 retrieval_agent = create_agent(
     model=create_chat_model(),
     tools=[retrieval_tool],
@@ -47,18 +86,57 @@ verification_agent = create_agent(
 )
 
 
+def planning_node(state: QAState) -> QAState:
+    """Planning Agent node: analyzes question and creates search strategy.
+
+    This node:
+    - Sends the user's question to the Planning Agent.
+    - The agent decomposes complex questions into sub-questions.
+    - Extracts the plan and sub-questions from the agent response.
+    - Stores them in `state["plan"]` and `state["sub_questions"]`.
+    """
+    question = state["question"]
+
+    result = planning_agent.invoke({"messages": [HumanMessage(content=question)]})
+
+    messages = result.get("messages", [])
+    plan = _extract_last_ai_content(messages)
+
+    # Extract sub-questions from the plan
+    sub_questions = _extract_sub_questions(plan)
+
+    return {
+        "plan": plan,
+        "sub_questions": sub_questions if sub_questions else None,
+    }
+
+
 def retrieval_node(state: QAState) -> QAState:
     """Retrieval Agent node: gathers context from vector store.
 
     This node:
     - Sends the user's question to the Retrieval Agent.
+    - If a plan and sub-questions exist, uses them to guide multiple retrievals.
     - The agent uses the attached retrieval tool to fetch document chunks.
     - Extracts the tool's content (CONTEXT string) from the ToolMessage.
     - Stores the consolidated context string in `state["context"]`.
     """
     question = state["question"]
+    plan = state.get("plan")
+    sub_questions = state.get("sub_questions")
 
-    result = retrieval_agent.invoke({"messages": [HumanMessage(content=question)]})
+    # Build a message that includes both the question and the plan
+    if plan and sub_questions:
+        user_message = f"""Question: {question}
+
+Planning Strategy:
+{plan}
+
+Please use this strategy to retrieve relevant information. Focus on searching for each aspect mentioned in the sub-questions to ensure comprehensive coverage."""
+    else:
+        user_message = question
+
+    result = retrieval_agent.invoke({"messages": [HumanMessage(content=user_message)]})
 
     messages = result.get("messages", [])
     context = ""

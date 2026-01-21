@@ -44,10 +44,10 @@ async def unhandled_exception_handler(
 async def qa_endpoint(payload: QuestionRequest) -> QAResponse:
     """Submit a question about the vector databases paper.
 
-    US-001 requirements:
+    Enhanced with query planning and decomposition:
     - Accept POST requests at `/qa` with JSON body containing a `question` field
     - Validate the request format and return 400 for invalid requests
-    - Return 200 with `answer`, `draft_answer`, and `context` fields
+    - Return 200 with `answer`, `context`, `plan`, and `sub_questions` fields
     - Delegate to the multi-agent RAG service layer for processing
     """
 
@@ -66,6 +66,8 @@ async def qa_endpoint(payload: QuestionRequest) -> QAResponse:
     return QAResponse(
         answer=result.get("answer", ""),
         context=result.get("context", ""),
+        plan=result.get("plan"),
+        sub_questions=result.get("sub_questions"),
     )
 
 

@@ -14,10 +14,11 @@ class QuestionRequest(BaseModel):
 class QAResponse(BaseModel):
     """Response body for the `/qa` endpoint.
 
-    From the API consumer's perspective we only expose the final,
-    verified answer plus some metadata (e.g. context snippets).
-    Internal draft answers remain inside the agent pipeline.
+    Exposes the final verified answer, query plan for transparency,
+    and context snippets used for answer generation.
     """
 
     answer: str
     context: str
+    plan: str | None = None
+    sub_questions: list[str] | None = None
