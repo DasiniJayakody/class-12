@@ -42,5 +42,18 @@ def get_settings() -> Settings:
     """
     global _settings
     if _settings is None:
-        _settings = Settings()
+        try:
+            _settings = Settings()
+        except Exception as exc:
+            # Provide a more actionable error than a generic ValidationError
+            required = [
+                "OPENAI_API_KEY",
+                "PINECONE_API_KEY",
+                "PINECONE_INDEX_NAME",
+            ]
+            raise RuntimeError(
+                "Missing or invalid configuration. Ensure these environment variables are set: "
+                + ", ".join(required)
+                + ". Create a .env file at the project root if running locally."
+            ) from exc
     return _settings

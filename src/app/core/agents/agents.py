@@ -60,30 +60,44 @@ def _extract_sub_questions(plan_text: str) -> list[str]:
     return sub_questions if sub_questions else []
 
 
-# Define agents at module level for reuse
-planning_agent = create_agent(
-    model=create_chat_model(),
-    tools=[],
-    system_prompt=PLANNING_SYSTEM_PROMPT,
-)
+from functools import lru_cache
 
-retrieval_agent = create_agent(
-    model=create_chat_model(),
-    tools=[retrieval_tool],
-    system_prompt=RETRIEVAL_SYSTEM_PROMPT,
-)
 
-summarization_agent = create_agent(
-    model=create_chat_model(),
-    tools=[],
-    system_prompt=SUMMARIZATION_SYSTEM_PROMPT,
-)
+# Cached agent factories (lazy initialization to avoid import-time failures)
+@lru_cache(maxsize=1)
+def get_planning_agent():
+    return create_agent(
+        model=create_chat_model(),
+        tools=[],
+        system_prompt=PLANNING_SYSTEM_PROMPT,
+    )
 
-verification_agent = create_agent(
-    model=create_chat_model(),
-    tools=[],
-    system_prompt=VERIFICATION_SYSTEM_PROMPT,
-)
+
+@lru_cache(maxsize=1)
+def get_retrieval_agent():
+    return create_agent(
+        model=create_chat_model(),
+        tools=[retrieval_tool],
+        system_prompt=RETRIEVAL_SYSTEM_PROMPT,
+    )
+
+
+@lru_cache(maxsize=1)
+def get_summarization_agent():
+    return create_agent(
+        model=create_chat_model(),
+        tools=[],
+        system_prompt=SUMMARIZATION_SYSTEM_PROMPT,
+    )
+
+
+@lru_cache(maxsize=1)
+def get_verification_agent():
+    return create_agent(
+        model=create_chat_model(),
+        tools=[],
+        system_prompt=VERIFICATION_SYSTEM_PROMPT,
+    )
 
 
 def planning_node(state: QAState) -> QAState:
@@ -97,7 +111,7 @@ def planning_node(state: QAState) -> QAState:
     """
     question = state["question"]
 
-    result = planning_agent.invoke({"messages": [HumanMessage(content=question)]})
+    result = get_planning_agent().invoke({"messages": [HumanMessage(content=question)]})
 
     messages = result.get("messages", [])
     plan = _extract_last_ai_content(messages)
@@ -136,7 +150,9 @@ Please use this strategy to retrieve relevant information. Focus on searching fo
     else:
         user_message = question
 
-    result = retrieval_agent.invoke({"messages": [HumanMessage(content=user_message)]})
+    result = get_retrieval_agent().invoke(
+        {"messages": [HumanMessage(content=user_message)]}
+    )
 
     messages = result.get("messages", [])
     context = ""
@@ -165,7 +181,7 @@ def summarization_node(state: QAState) -> QAState:
 
     user_content = f"Question: {question}\n\nContext:\n{context}"
 
-    result = summarization_agent.invoke(
+    result = get_summarization_agent().invoke(
         {"messages": [HumanMessage(content=user_content)]}
     )
     messages = result.get("messages", [])
@@ -198,7 +214,7 @@ Draft Answer:
 
 Please verify and correct the draft answer, removing any unsupported claims."""
 
-    result = verification_agent.invoke(
+    result = get_verification_agent().invoke(
         {"messages": [HumanMessage(content=user_content)]}
     )
     messages = result.get("messages", [])
