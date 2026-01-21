@@ -15,5 +15,18 @@ except ModuleNotFoundError:
 
 if __name__ == "__main__":
     import uvicorn
+    from src.app.core.config import get_settings  # type: ignore
 
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    try:
+        settings = get_settings()
+    except ValueError as e:
+        print(f"Configuration error: {e}")
+        import sys
+
+        sys.exit(1)
+
+    uvicorn.run(
+        app,
+        host=settings.host,
+        port=settings.port,
+    )
