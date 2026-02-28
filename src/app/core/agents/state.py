@@ -4,11 +4,11 @@ from typing import TypedDict
 
 
 class QAState(TypedDict):
-    """State schema for the multi-agent QA flow with query planning.
+    """State schema for the multi-agent QA flow with Query Planning.
 
-    The state flows through four agents:
-    1. Planning Agent: analyzes question and creates search strategy
-    2. Retrieval Agent: populates `context` from `question` and `plan`
+    The state flows through several agents:
+    1. Planning Agent: generates `plan` and `sub_questions` from `question`
+    2. Retrieval Agent: populates `context` from `sub_questions`
     3. Summarization Agent: generates `draft_answer` from `question` + `context`
     4. Verification Agent: produces final `answer` from `question` + `context` + `draft_answer`
     """

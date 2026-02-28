@@ -1,129 +1,218 @@
-import React, { useState } from 'react'
-import './App.css'
-import QueryForm from './components/QueryForm'
-import QueryPlan from './components/QueryPlan'
-import AnswerDisplay from './components/AnswerDisplay'
-import LoadingSpinner from './components/LoadingSpinner'
-import ErrorMessage from './components/ErrorMessage'
+import React, { useState, useRef, useEffect } from 'react';
+import { Send, Upload, FileText, Bot, User, CheckCircle2, AlertCircle, Loader2, Search } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import './App.css';
 
 function App() {
-  const [question, setQuestion] = useState('')
-  const [result, setResult] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [showPlan, setShowPlan] = useState(true)
+    const [messages, setMessages] = useState([
+        { id: 1, type: 'bot', text: "Hello! I'm your Multi-Agent RAG assistant. Upload a PDF paper to get started, or ask me questions if documents are already indexed." }
+    ]);
+    const [input, setInput] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
+    const [isAsking, setIsAsking] = useState(false);
+    const [uploadStatus, setUploadStatus] = useState(null);
+    const chatEndRef = useRef(null);
 
-  const handleSubmit = async (q) => {
-    if (!q.trim()) {
-      setError('Please enter a question')
-      return
-    }
+    const scrollToBottom = () => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
 
-    setQuestion(q)
-    setLoading(true)
-    setError(null)
-    setResult(null)
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
 
-    try {
-      const response = await fetch('http://localhost:8000/qa', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ question: q })
-      })
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!input.trim() || isAsking) return;
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to get answer')
-      }
+        const userMessage = { id: Date.now(), type: 'user', text: input };
+        setMessages(prev => [...prev, userMessage]);
+        setInput('');
+        setIsAsking(true);
 
-      const data = await response.json()
-      setResult(data)
-    } catch (err) {
-      setError(err.message || 'An error occurred. Please try again.')
-      console.error('Error:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
+        try {
+            const response = await fetch('/api/qa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: input })
+            });
 
-  const handleReset = () => {
-    setQuestion('')
-    setResult(null)
-    setError(null)
-  }
+            if (!response.ok) throw new Error('Failed to get answer');
 
-  return (
-    <div className="app">
-      <div className="app-header">
-        <div className="header-content">
-          <h1>🤖 AI Query Planner</h1>
-          <p className="subtitle">Multi-Agent RAG with Intelligent Query Decomposition</p>
-        </div>
-      </div>
+            const data = await response.json();
 
-      <div className="app-container">
-        <div className="main-content">
-          <QueryForm onSubmit={handleSubmit} loading={loading} />
+            setMessages(prev => [...prev, {
+                id: Date.now() + 1,
+                type: 'bot',
+                text: data.answer,
+                context: data.context,
+                plan: data.plan,
+                sub_questions: data.sub_questions
+            }]);
+        } catch (error) {
+            setMessages(prev => [...prev, {
+                id: Date.now() + 1,
+                type: 'bot',
+                text: "Sorry, I encountered an error while processing your request.",
+                isError: true
+            }]);
+        } finally {
+            setIsAsking(false);
+        }
+    };
 
-          {error && <ErrorMessage message={error} />}
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-          {loading && <LoadingSpinner />}
+        setIsUploading(true);
+        setUploadStatus('uploading');
 
-          {result && (
-            <div className="results-section">
-              <div className="results-header">
-                <h2>Query Analysis & Results</h2>
-                <button className="reset-btn" onClick={handleReset}>
-                  New Query
-                </button>
-              </div>
+        const formData = new FormData();
+        formData.append('file', file);
 
-              {result.plan && (
-                <div className="section-toggle">
-                  <button
-                    className="toggle-btn"
-                    onClick={() => setShowPlan(!showPlan)}
-                  >
-                    {showPlan ? '▼' : '▶'} Query Planning Strategy
-                  </button>
+        try {
+            const response = await fetch('/api/index-pdf', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) throw new Error('Upload failed');
+
+            const data = await response.json();
+            setUploadStatus('success');
+            setMessages(prev => [...prev, {
+                id: Date.now(),
+                type: 'bot',
+                text: `Successfully indexed: ${file.name}. ${data.chunks_indexed} chunks added to the vector store.`
+            }]);
+
+            setTimeout(() => setUploadStatus(null), 3000);
+        } catch (error) {
+            setUploadStatus('error');
+            setTimeout(() => setUploadStatus(null), 3000);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    return (
+        <div className="app-container">
+            {/* Sidebar / Document Upload */}
+            <aside className="sidebar">
+                <div className="logo">
+                    <Search className="logo-icon" />
+                    <span>Strategic RAG</span>
                 </div>
-              )}
 
-              {result.plan && showPlan && (
-                <QueryPlan plan={result.plan} subQuestions={result.sub_questions} />
-              )}
+                <div className="upload-section">
+                    <h3>Knowledge Base</h3>
+                    <p>Upload PDFs to index them into Pinecone.</p>
 
-              <AnswerDisplay
-                answer={result.answer}
-                context={result.context}
-              />
-            </div>
-          )}
+                    <label className={`upload-card ${uploadStatus}`}>
+                        <input type="file" onChange={handleFileUpload} accept=".pdf" disabled={isUploading} />
+                        {isUploading ? (
+                            <Loader2 className="animate-spin icon" />
+                        ) : uploadStatus === 'success' ? (
+                            <CheckCircle2 className="icon success" />
+                        ) : uploadStatus === 'error' ? (
+                            <AlertCircle className="icon error" />
+                        ) : (
+                            <Upload className="icon" />
+                        )}
+                        <span>{isUploading ? 'Indexing...' : 'Upload PDF'}</span>
+                    </label>
+                </div>
 
-          {!loading && !result && !error && (
-            <div className="welcome-message">
-              <div className="welcome-icon">📚</div>
-              <h2>Welcome to the Query Planner</h2>
-              <p>Ask any question about the indexed documents.</p>
-              <p className="info">The system will automatically:</p>
-              <ul className="info-list">
-                <li>✓ Analyze and decompose complex questions</li>
-                <li>✓ Create an intelligent search strategy</li>
-                <li>✓ Retrieve relevant context from the database</li>
-                <li>✓ Generate a verified answer</li>
-              </ul>
-            </div>
-          )}
+                <div className="stats">
+                    <div className="stat-item">
+                        <Search className="stat-icon" />
+                        <div>
+                            <span>Agentic Pipeline</span>
+                            <small>Planning → Retrieval → Summary → Verifier</small>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            {/* Main Chat Area */}
+            <main className="chat-main">
+                <header className="chat-header">
+                    <h2>Query Planning & Decomposition</h2>
+                    <div className="status-badge">Strategic Multi-Agent Pipeline</div>
+                </header>
+
+                <div className="messages-container">
+                    <AnimatePresence initial={false}>
+                        {messages.map((msg) => (
+                            <motion.div
+                                key={msg.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className={`message-wrapper ${msg.type}`}
+                            >
+                                <div className="avatar">
+                                    {msg.type === 'bot' ? <Bot size={18} /> : <User size={18} />}
+                                </div>
+                                <div className="message-content">
+                                    <div className="bubble">
+                                        {msg.plan && (
+                                            <div className="plan-section">
+                                                <div className="plan-badge">Search Plan</div>
+                                                <p className="plan-text">{msg.plan}</p>
+                                                {msg.sub_questions && (
+                                                    <div className="sub-questions-list">
+                                                        {msg.sub_questions.map((sq, i) => (
+                                                            <div key={i} className="sub-q-item">
+                                                                <Search size={10} /> {sq}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {msg.text}
+                                    </div>
+                                    {msg.context && (
+                                        <details className="context-expander">
+                                            <summary><FileText size={12} /> View Retrieved Context</summary>
+                                            <pre className="context-text">{msg.context}</pre>
+                                        </details>
+                                    )}
+                                </div>
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
+                    {isAsking && (
+                        <div className="message-wrapper bot">
+                            <div className="avatar"><Bot size={18} /></div>
+                            <div className="bubble loading">
+                                <span className="dot"></span>
+                                <span className="dot"></span>
+                                <span className="dot"></span>
+                            </div>
+                        </div>
+                    )}
+                    <div ref={chatEndRef} />
+                </div>
+
+                <footer className="chat-input-area">
+                    <form onSubmit={handleSendMessage} className="input-form">
+                        <input
+                            type="text"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            placeholder="Ask a question about the documents..."
+                            disabled={isAsking}
+                        />
+                        <button type="submit" disabled={isAsking || !input.trim()}>
+                            {isAsking ? <Loader2 className="animate-spin" /> : <Send size={20} />}
+                        </button>
+                    </form>
+                </footer>
+            </main>
         </div>
-      </div>
-
-      <div className="app-footer">
-        <p>Powered by LangChain & LangGraph | Multi-Agent RAG System</p>
-      </div>
-    </div>
-  )
+    );
 }
 
-export default App
+export default App;

@@ -8,14 +8,24 @@ from .services.qa_service import answer_question
 from .services.indexing_service import index_pdf_file
 
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(
-    title="Class 12 Multi-Agent RAG Demo",
+    title="Strategic Multi-Agent RAG (Query Decomposition)",
     description=(
-        "Demo API for asking questions about a vector databases paper. "
-        "The `/qa` endpoint currently returns placeholder responses and "
-        "will be wired to a multi-agent RAG pipeline in later user stories."
+        "Enhanced RAG pipeline using a strategic Query Planning Agent "
+        "to decompose complex questions into targeted search sub-queries."
     ),
     version="0.1.0",
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify the exact origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -44,10 +54,10 @@ async def unhandled_exception_handler(
 async def qa_endpoint(payload: QuestionRequest) -> QAResponse:
     """Submit a question about the vector databases paper.
 
-    Enhanced with query planning and decomposition:
+    US-001 requirements:
     - Accept POST requests at `/qa` with JSON body containing a `question` field
     - Validate the request format and return 400 for invalid requests
-    - Return 200 with `answer`, `context`, `plan`, and `sub_questions` fields
+    - Return 200 with `answer`, `draft_answer`, and `context` fields
     - Delegate to the multi-agent RAG service layer for processing
     """
 

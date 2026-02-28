@@ -1,160 +1,13 @@
-# Building a Knowledge-Based Q&A Application with LangChain and Pinecone
+# Building a Knowledge-Based Q&A Application with
 
-## 🆕 Enhanced with Feature 1: Query Planning & Decomposition
+# LangChain and Pinecone
 
-This is an **enhanced version** of the multi-agent RAG pipeline with intelligent query planning capabilities.
-
-### ✨ What's New in This Version
-
-**Query Planning Agent** - An intelligent agent that analyzes complex questions and creates structured search strategies before retrieval begins.
-
-**Key Improvements:**
-
-- ✅ Analyzes question complexity
-- ✅ Decomposes multi-part questions into focused sub-questions
-- ✅ Creates structured search strategies
-- ✅ Improves retrieval relevance for complex queries
-- ✅ Provides transparency through visible planning steps
-- ✅ Modern React UI with planning visualization
-
-### Quick Start (⚡ 5 minutes)
-
-**Windows:**
-
-```batch
-cd "d:\AI Bootcamp\class-12"
-quickstart.bat
-```
-
-**Linux/Mac:**
-
-```bash
-cd "d:\AI Bootcamp\class-12"
-bash quickstart.sh
-```
-
-Then:
-
-1. Edit `.env` with your OpenAI and Pinecone API keys
-2. Open 2 terminals
-3. Terminal 1: `uvicorn src.app.api:app --reload` (Backend on port 8000)
-4. Terminal 2: `cd frontend && npm run dev` (Frontend on port 5173)
-5. Open http://localhost:5173 in your browser
-
-### 📚 Complete Documentation
-
-- **[SETUP_GUIDE.md](SETUP_GUIDE.md)** - Detailed setup and deployment instructions
-- **API Documentation** - In SETUP_GUIDE.md under "📚 API Documentation"
-- **Architecture** - In SETUP_GUIDE.md under "Architecture"
-
-### 🎯 Project Structure
-
-```
-class-12/
-├── src/app/
-│   ├── api.py                    # FastAPI endpoints
-│   ├── models.py                 # Request/response schemas
-│   ├── core/
-│   │   ├── agents/
-│   │   │   ├── agents.py        # Agents including NEW planning_node
-│   │   │   ├── graph.py         # LangGraph with planning in flow
-│   │   │   ├── prompts.py       # NEW PLANNING_SYSTEM_PROMPT
-│   │   │   ├── state.py         # NEW plan & sub_questions fields
-│   │   │   └── tools.py
-│   │   ├── llm/
-│   │   ├── config.py
-│   │   └── retrieval/
-│   │       ├── vector_store.py
-│   │       └── serialization.py
-│   └── services/
-│       ├── qa_service.py
-│       └── indexing_service.py
-├── frontend/                    # React UI (NEW)
-│   ├── src/
-│   │   ├── App.jsx
-│   │   ├── components/
-│   │   │   ├── QueryForm.jsx
-│   │   │   ├── QueryPlan.jsx      # NEW - displays query plan
-│   │   │   ├── AnswerDisplay.jsx
-│   │   │   ├── LoadingSpinner.jsx
-│   │   │   └── ErrorMessage.jsx
-│   │   └── main.jsx
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.js
-├── SETUP_GUIDE.md              # Detailed setup guide
-├── pyproject.toml
-├── .env                        # Environment variables
-└── README.md                   # This file
-```
-
-### 🔄 Query Planning Flow
-
-**Simple Question:**
-
-```
-User: "What are vector databases?"
-     ↓
-Planning Agent: "Direct retrieval sufficient"
-     ↓
-Retrieval Agent: Searches for "vector databases"
-     ↓
-Answer: Concise explanation
-```
-
-**Complex Question:**
-
-```
-User: "What are advantages of vector DB vs traditional DB,
-       and how do they handle scalability?"
-     ↓
-Planning Agent: Decompose into sub-questions:
-  1. "advantages of vector databases"
-  2. "comparison with traditional databases"
-  3. "scalability in vector databases"
-     ↓
-Retrieval Agent: Multiple targeted searches
-     ↓
-Answer: Comprehensive response covering all aspects
-```
-
-### 🧪 Test It Out
-
-1. **Simple Question:**
-   - Q: "What are vector databases?"
-   - See direct search strategy
-
-2. **Complex Question (Demonstrates Planning):**
-   - Q: "What are the advantages of vector databases compared to traditional databases, and how do they handle scalability?"
-   - See decomposed sub-questions and multiple retrievals
-
-3. **Upload PDF:**
-   - Use `/index-pdf` endpoint to upload your own documents
-   - Ask questions about the uploaded content
-
-### 🚀 Deployment
-
-**Development:**
-
-```bash
-# Backend: port 8000
-uvicorn src.app.api:app --reload
-
-# Frontend: port 5173
-cd frontend && npm run dev
-```
-
-**Production with Docker:**
-
-```bash
-docker-compose up
-```
-
-See [SETUP_GUIDE.md](SETUP_GUIDE.md) for complete deployment instructions.
-
----
-
-**For detailed setup, troubleshooting, and API documentation, see [SETUP_GUIDE.md](SETUP_GUIDE.md)**
+In this session, we will develop a **document question-answering application** step by step. The application
+will load a knowledge document (a PDF), index its content in a vector database, and use a GPT-based
+language model to answer questions by retrieving information from the document. We’ll use **LangChain
+1.0** (with the new LangGraph framework) for building our pipeline, **Pinecone** as the vector database, and an
+OpenAI GPT-3.5 model (a "mini" GPT) for answering questions. Each part below introduces a component of
+the system with background and code snippets.
 
 ## 1. Selecting and Ingesting a Knowledge Document
 
@@ -176,11 +29,9 @@ list of Document objects (one per page in this example):
 # Install the integration package first:
 # pip install langchain-pymupdf4llm langchain-core
 ```
-
 ```
 fromlangchain_pymupdf4llm importPyMuPDF4LLMLoader
 ```
-
 ```
 # Initialize the PDF loader for a given file path (or URL)
 loader = PyMuPDF4LLMLoader(
@@ -189,12 +40,10 @@ mode="page" # "page" mode gives one Document per page; use "single" for
 whole PDF as one Document
 )
 ```
-
 ```
 # Load the document(s) from the PDF
 docs= loader.load()
 ```
-
 ```
 1
 ```
@@ -204,7 +53,6 @@ print(f"Loaded {len(docs)} documents from the PDF.")
 print(docs[0].page_content[:200]) # preview the first 200 characters of the
 first page
 ```
-
 **Explanation:** In the code above, we create a PyMuPDF4LLMLoader with mode="page" to split the PDF
 by pages. The loader’s load() method returns a list of Document objects. Each Document contains the
 page text in page_content and metadata (like page number). If your PDF is small or if you prefer a single
@@ -239,24 +87,20 @@ Below is a code snippet to generate embeddings for the loaded documents and inde
 # Install required packages:
 # pip install pinecone-client langchain-pinecone langchain-openai
 ```
-
 ```
 import os
 import pinecone
 fromlangchain_openai importOpenAIEmbeddings
 ```
-
 ```
 # Initialize Pinecone
 pinecone_api_key = os.environ.get("PINECONE_API_KEY")or "YOUR-PINECONE-API-KEY"
 pinecone_env= os.environ.get("PINECONE_ENV") or"YOUR-PINECONE-ENV" # e.g.,
 "us-central1-gcp"
 ```
-
 ```
 2
 ```
-
 ```
 3
 ```
@@ -264,7 +108,6 @@ pinecone_env= os.environ.get("PINECONE_ENV") or"YOUR-PINECONE-ENV" # e.g.,
 ```
 pinecone.init(api_key=pinecone_api_key, environment=pinecone_env)
 ```
-
 ```
 # Create a Pinecone index if it doesn't exist
 index_name= "knowledge-index"
@@ -273,28 +116,23 @@ pinecone.create_index(index_name, dimension=1536) # 1536 for text-
 embedding-ada-
 index= pinecone.Index(index_name)
 ```
-
 ```
 # Initialize the OpenAI embedding model
 embedding_model= OpenAIEmbeddings(model="text-embedding-ada-002")
 ```
-
 ```
 # Convert document pages to embeddings and upsert into Pinecone
 fromlangchain_pineconeimport PineconeVectorStore
 ```
-
 ```
 # Use PineconeVectorStore to add documents
 vector_store= PineconeVectorStore(index=index, embedding=embedding_model,
 text_key="page_content")
 vector_store.add_documents(docs)
 ```
-
 ```
 print("Indexed all documents in Pinecone.")
 ```
-
 **Explanation:** This code connects to Pinecone using an API key and environment, creates a new index called
 "knowledge-index" if one doesn’t exist, and initializes the OpenAI embedding model. We use
 PineconeVectorStore (from the LangChain Pinecone integration) to store the documents. The
@@ -310,7 +148,6 @@ LangChain offers text splitters for this. Since our example uses at most a page 
 proceed with that for simplicity. Also, remember to keep API keys secure (e.g., use
 environment variables as shown, rather than hard-coding them).
 ```
-
 ## 3. Integrating a GPT Model for Question Answering
 
 With our knowledge document indexed in Pinecone, we can now build the **question-answering (QA)
@@ -321,6 +158,7 @@ with the question, to the GPT model to help it formulate an informed answer.
 
 **Retrieval:** We will use the LangChain retriever interface to fetch relevant chunks. The
 PineconeVectorStore we created can be turned into a retriever. For example,
+
 
 vector_store.as_retriever(k=3) will allow us to retrieve the top 3 most similar chunks for any
 query.
@@ -340,12 +178,10 @@ Here’s the code to create a QA chain and perform a sample query:
 fromlangchain.chat_models importChatOpenAI
 fromlangchain.chains importRetrievalQA
 ```
-
 ```
 # Initialize the chat model (ensure OPENAI_API_KEY is set in the environment)
 chat_model= ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
 ```
-
 ```
 # Create a RetrievalQA chain using the chat model and our Pinecone retriever
 qa_chain= RetrievalQA.from_chain_type(
@@ -357,14 +193,12 @@ return_source_documents=True # to return the source docs along with the
 answer (optional)
 )
 ```
-
 ```
 # Example query to test the QA system
 query= "YOUR_QUESTION_HERE" # e.g., "What is the main idea discussed in the
 document?"
 result = qa_chain({"query": query})
 ```
-
 ```
 answer = result["result"]
 sources= result.get("source_documents", [])
@@ -373,11 +207,11 @@ print("A:", answer)
 ifsources:
 print(f"Retrieved {len(sources)} source document(s) for reference.")
 ```
-
 **Explanation:** We create ChatOpenAI with the desired model and parameters (temperature 0 for
 deterministic answers). Then we build a RetrievalQA chain with chain_type="stuff", which is a
 straightforward method to send all retrieved text to the LLM. We configure the retriever to return the top 3
 chunks from our vector_store. When we call qa_chain({"query": ...}), the chain will: (a) use the
+
 
 retriever to get relevant text from Pinecone for the query, (b) feed the question and that text to the GPT
 model, and (c) return the model’s answer. We also request source_documents so we can see which parts
@@ -402,22 +236,18 @@ assumes that the qa_chain from the previous step is already created and availabl
 # Install FastAPI and Uvicorn if not already:
 # pip install fastapi uvicorn
 ```
-
 ```
 fromfastapiimport FastAPI
 frompydanticimport BaseModel
 ```
-
 ```
 app= FastAPI()
 ```
-
 ```
 # Define a request schema for the question
 classQuestionRequest(BaseModel):
 query: str
 ```
-
 ```
 @app.post("/ask")
 defask_question(request: QuestionRequest):
@@ -427,15 +257,14 @@ result = qa_chain({"query": user_query})
 answer = result["result"]
 return {"question": user_query, "answer": answer}
 ```
-
 ```
 # To run the app, use: uvicorn main:app --reload
 ```
-
 **Explanation:** We create a FastAPI app and define a POST endpoint /ask. Clients will send a JSON payload
 like {"query": "Your question"}. The QuestionRequest Pydantic model enforces that structure.
 In the ask_question function, we take the user_query, feed it to our qa_chain, and return the
 answer in a JSON response. We include the original question and the answer in the response for clarity. (If
+
 
 needed, you could also include source information in the response.) To run this API, you would use Uvicorn
 as shown in the comment. Once running, any HTTP client (or a simple curl command) can hit [http://](http://)
@@ -458,7 +287,6 @@ loader), splitting text into chunks, embedding those chunks, and upserting to Pi
 scale deployments, consider using batch upsert operations and monitoring the indexing process for
 errors.
 ```
-
 ```
 Document Updates: If the content changes or new documents are added, you’ll need to update the
 Pinecone index. Pinecone supports updating or deleting vectors by ID. Keeping track of document
@@ -466,13 +294,11 @@ IDs and metadata (like timestamps or versions in the metadata) is helpful. In ou
 didn’t explicitly set IDs or metadata aside from the text, but in production you might store titles,
 timestamps, or source URLs in the metadata for each vector.
 ```
-
 ```
 Environment & Configuration: Ensure that sensitive keys (OpenAI, Pinecone API keys) are kept out
 of code (we used os.environ.get which is good practice). Also, configuration like index name,
 model names, etc., could be managed via config files or environment variables for flexibility.
 ```
-
 ```
 Latency and Cost: Using an embedding API and an LLM API means each question involves network
 calls. In production, you might implement caching strategies for repeated questions or popular
@@ -480,7 +306,6 @@ documents. Also, if using a smaller model is sufficient (as we chose GPT-3.5 ove
 that's a trade-off between cost and performance. You could further optimize by using a local
 embedding model (to avoid the overhead per embedding call) if needed.
 ```
-
 ```
 LangChain & LangGraph: With LangChain v1.0 and LangGraph, our simple chain is already quite
 straightforward. For more complex applications, LangGraph provides a way to define agent
@@ -490,7 +315,6 @@ which positions us well if we later extend this app (for example, adding tools o
 reasoning). The core retrieval-augmented QA pattern remains the same in LangChain v1.0 – we
 create a retriever and an LLM chain to answer queries.
 ```
-
 By following these steps and considerations, we have a **production-like retrieval augmented QA system**
 on a single knowledge document, implemented in a clear and incremental way. The audience (newcomers)
 
@@ -503,6 +327,7 @@ on a single knowledge document, implemented in a clear and incremental way. The 
 ### •
 
 ### •
+
 
 should focus on understanding each component: document loading, vector indexing, querying, and serving
 the results. With this foundation, you can scale up to multiple documents or more advanced capabilities as
@@ -517,48 +342,45 @@ generate the full application based on our design:
 ```
 You are an expert Python developer and AI assistant.
 ```
-
 ```
 **Task**: Build a knowledge-based Q&A application using LangChain v1.0 (with
 LangGraph), Pinecone vector DB, and OpenAI GPT-3.5. The application should load
 a PDF document, index its content into Pinecone, and answer user questions via
 an API.
 ```
-
 ```
 **Requirements & Steps**:
 ```
-
 1. **Document Ingestion**: Use `langchain_pymupdf4llm` to load a PDF file. Split
-   by page into Document objects.
+by page into Document objects.
 2. **Vector Indexing**: Initialize Pinecone (use API key and environment from
-   environment variables). Create a Pinecone index (if not exists) with dimension
-   1536 (for ada-002 embeddings). Use `OpenAIEmbeddings` (text-embedding-ada-002)
-   to embed each document page. Store the embeddings in Pinecone, including the
-   page text as metadata.
+environment variables). Create a Pinecone index (if not exists) with dimension
+1536 (for ada-002 embeddings). Use `OpenAIEmbeddings` (text-embedding-ada-002)
+to embed each document page. Store the embeddings in Pinecone, including the
+page text as metadata.
 3. **QA Chain**: Set up a LangChain `RetrievalQA` chain. Use `ChatOpenAI` with
-   model `"gpt-3.5-turbo"` for the LLM. Use the Pinecone vector store as a
-   retriever (top 3 results). Ensure the chain returns the answer (and source
-   documents for verification).
+model `"gpt-3.5-turbo"` for the LLM. Use the Pinecone vector store as a
+retriever (top 3 results). Ensure the chain returns the answer (and source
+documents for verification).
 4. **API Server**: Create a FastAPI application with an endpoint `/ask` that
-   accepts a JSON question and returns the answer. On each request, query the
-   `RetrievalQA` chain and return the answer in JSON.
+accepts a JSON question and returns the answer. On each request, query the
+`RetrievalQA` chain and return the answer in JSON.
 5. **Testing**: Include a brief example of querying the API or chain in code to
-   demonstrate functionality (e.g., ask a sample question and print the answer).
+demonstrate functionality (e.g., ask a sample question and print the answer).
 6. **Good Practices**: Use environment variables for keys (OpenAI, Pinecone).
-   Add comments in code for clarity. Structure the code in logical sections
-   (loading, indexing, querying, API setup).
+Add comments in code for clarity. Structure the code in logical sections
+(loading, indexing, querying, API setup).
 
 ```
 Now, please generate the Python code fulfilling the above requirements. Make
 sure the code is well-organized, uses the specified libraries and classes, and
 is suitable for a tutorial/demo setting.
 ```
-
 Copy and paste the above prompt into the Cursor AI (or your coding assistant of choice) to guide it in
 building the application. The AI should then produce the code for the entire system, following the plan
 we've outlined. This approach demonstrates to newcomers how to translate a design into an
 implementation with the help of AI coding tools.
+
 
 langchain-pymupdf4llm · PyPI
 https://pypi.org/project/langchain-pymupdf4llm/
@@ -571,7 +393,6 @@ a5c991b2a
 ```
 1
 ```
-
 ```
 2 3
 ```

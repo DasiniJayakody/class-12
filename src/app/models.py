@@ -14,8 +14,8 @@ class QuestionRequest(BaseModel):
 class QAResponse(BaseModel):
     """Response body for the `/qa` endpoint.
 
-    Exposes the final verified answer, query plan for transparency,
-    and context snippets used for answer generation.
+    From the API consumer's perspective we only expose the final,
+    verified answer plus the generated search plan and retrieved context.
     """
 
     answer: str

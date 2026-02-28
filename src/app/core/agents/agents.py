@@ -28,100 +28,73 @@ def _extract_last_ai_content(messages: List[object]) -> str:
     return ""
 
 
-def _extract_sub_questions(plan_text: str) -> list[str]:
-    """Extract sub-questions from the planning agent's output.
+# Define agents at module level for reuse
+planning_agent = create_agent(
+    model=create_chat_model(),
+    tools=[],
+    system_prompt=PLANNING_SYSTEM_PROMPT,
+)
 
-    Looks for lines that appear to be sub-questions (starting with dashes, asterisks,
-    or numbered items in the SUB-QUESTIONS section).
-    """
+retrieval_agent = create_agent(
+    model=create_chat_model(),
+    tools=[retrieval_tool],
+    system_prompt=RETRIEVAL_SYSTEM_PROMPT,
+)
+
+summarization_agent = create_agent(
+    model=create_chat_model(),
+    tools=[],
+    system_prompt=SUMMARIZATION_SYSTEM_PROMPT,
+)
+
+verification_agent = create_agent(
+    model=create_chat_model(),
+    tools=[],
+    system_prompt=VERIFICATION_SYSTEM_PROMPT,
+)
+
+
+def _parse_planning_output(content: str):
+    """Parse the structured output from the Planning Agent."""
+    plan = ""
     sub_questions = []
-    in_sub_questions_section = False
 
-    for line in plan_text.split("\n"):
-        line = line.strip()
+    lines = content.strip().split("\n")
+    current_section = None
 
-        # Detect sub-questions section
-        if "SUB-QUESTION" in line.upper() or "sub-question" in line.lower():
-            in_sub_questions_section = True
-            continue
+    for line in lines:
+        if line.startswith("Plan:"):
+            plan = line.replace("Plan:", "").strip()
+        elif line.startswith("Sub-questions:"):
+            current_section = "sub_questions"
+        elif current_section == "sub_questions" and line.strip().startswith("-"):
+            sub_questions.append(line.strip().lstrip("- ").strip())
 
-        # Exit section if we hit another section header or empty lines followed by uppercase
-        if in_sub_questions_section and line and (line[0].isupper() and ":" in line):
-            if "SUB-QUESTION" not in line.upper():
-                in_sub_questions_section = False
-
-        # Extract sub-questions
-        if in_sub_questions_section and line:
-            # Remove common prefixes like "- ", "* ", "1. ", etc.
-            cleaned = line.lstrip("0123456789.-*) ")
-            if cleaned and len(cleaned) > 5:  # Filter out very short lines
-                sub_questions.append(cleaned)
-
-    return sub_questions if sub_questions else []
-
-
-from functools import lru_cache
-
-
-# Cached agent factories (lazy initialization to avoid import-time failures)
-@lru_cache(maxsize=1)
-def get_planning_agent():
-    return create_agent(
-        model=create_chat_model(),
-        tools=[],
-        system_prompt=PLANNING_SYSTEM_PROMPT,
-    )
-
-
-@lru_cache(maxsize=1)
-def get_retrieval_agent():
-    return create_agent(
-        model=create_chat_model(),
-        tools=[retrieval_tool],
-        system_prompt=RETRIEVAL_SYSTEM_PROMPT,
-    )
-
-
-@lru_cache(maxsize=1)
-def get_summarization_agent():
-    return create_agent(
-        model=create_chat_model(),
-        tools=[],
-        system_prompt=SUMMARIZATION_SYSTEM_PROMPT,
-    )
-
-
-@lru_cache(maxsize=1)
-def get_verification_agent():
-    return create_agent(
-        model=create_chat_model(),
-        tools=[],
-        system_prompt=VERIFICATION_SYSTEM_PROMPT,
-    )
+    return plan, sub_questions
 
 
 def planning_node(state: QAState) -> QAState:
-    """Planning Agent node: analyzes question and creates search strategy.
+    """Planning Agent node: decomposes question into a search strategy.
 
     This node:
     - Sends the user's question to the Planning Agent.
-    - The agent decomposes complex questions into sub-questions.
-    - Extracts the plan and sub-questions from the agent response.
-    - Stores them in `state["plan"]` and `state["sub_questions"]`.
+    - Extracts the natural language 'plan' and list of 'sub_questions'.
+    - Stores them in the state for the Retrieval Agent to use.
     """
     question = state["question"]
 
-    result = get_planning_agent().invoke({"messages": [HumanMessage(content=question)]})
+    result = planning_agent.invoke({"messages": [HumanMessage(content=question)]})
+    content = _extract_last_ai_content(result.get("messages", []))
 
-    messages = result.get("messages", [])
-    plan = _extract_last_ai_content(messages)
+    plan, sub_questions = _parse_planning_output(content)
 
-    # Extract sub-questions from the plan
-    sub_questions = _extract_sub_questions(plan)
+    # Fallback: if no sub-questions parsed, use the original question
+    if not sub_questions:
+        sub_questions = [question]
 
     return {
         "plan": plan,
-        "sub_questions": sub_questions if sub_questions else None,
+        "sub_questions": sub_questions,
     }
 
 
@@ -129,39 +102,26 @@ def retrieval_node(state: QAState) -> QAState:
     """Retrieval Agent node: gathers context from vector store.
 
     This node:
-    - Sends the user's question to the Retrieval Agent.
-    - If a plan and sub-questions exist, uses them to guide multiple retrievals.
-    - The agent uses the attached retrieval tool to fetch document chunks.
-    - Extracts the tool's content (CONTEXT string) from the ToolMessage.
-    - Stores the consolidated context string in `state["context"]`.
+    - Iterates through the sub-questions generated by the Planning Agent.
+    - Sends each sub-question to the Retrieval Agent.
+    - Consolidates all retrieved context from all sub-queries.
+    - Stores the unique context string in `state["context"]`.
     """
-    question = state["question"]
-    plan = state.get("plan")
-    sub_questions = state.get("sub_questions")
+    sub_questions = state.get("sub_questions") or [state["question"]]
+    all_contexts = []
 
-    # Build a message that includes both the question and the plan
-    if plan and sub_questions:
-        user_message = f"""Question: {question}
+    for sq in sub_questions:
+        result = retrieval_agent.invoke({"messages": [HumanMessage(content=sq)]})
+        messages = result.get("messages", [])
 
-Planning Strategy:
-{plan}
+        # Extract context from ToolMessage
+        for msg in reversed(messages):
+            if isinstance(msg, ToolMessage):
+                all_contexts.append(str(msg.content))
+                break
 
-Please use this strategy to retrieve relevant information. Focus on searching for each aspect mentioned in the sub-questions to ensure comprehensive coverage."""
-    else:
-        user_message = question
-
-    result = get_retrieval_agent().invoke(
-        {"messages": [HumanMessage(content=user_message)]}
-    )
-
-    messages = result.get("messages", [])
-    context = ""
-
-    # Prefer the last ToolMessage content (from retrieval_tool)
-    for msg in reversed(messages):
-        if isinstance(msg, ToolMessage):
-            context = str(msg.content)
-            break
+    # Join multiple retrieval results
+    context = "\n\n".join(all_contexts)
 
     return {
         "context": context,
@@ -181,7 +141,7 @@ def summarization_node(state: QAState) -> QAState:
 
     user_content = f"Question: {question}\n\nContext:\n{context}"
 
-    result = get_summarization_agent().invoke(
+    result = summarization_agent.invoke(
         {"messages": [HumanMessage(content=user_content)]}
     )
     messages = result.get("messages", [])
@@ -214,7 +174,7 @@ Draft Answer:
 
 Please verify and correct the draft answer, removing any unsupported claims."""
 
-    result = get_verification_agent().invoke(
+    result = verification_agent.invoke(
         {"messages": [HumanMessage(content=user_content)]}
     )
     messages = result.get("messages", [])

@@ -1,0 +1,61 @@
+﻿uv : INFO:     Started 
+server process [5540]
+At line:1 char:1
++ uv run uvicorn 
+src.app.api:app --host 
+0.0.0.0 --port 8000 2>&1 | 
+Out- ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~
+    + CategoryInfo          
+:     NotSpecified: (INFO:   
+  S    tarted server process 
+[554    0]:String) [], 
+RemoteExcep    tion
+    + FullyQualifiedErrorId 
+:     NativeCommandError
+ 
+INFO:     Waiting for 
+application startup.
+INFO:     Application 
+startup complete.
+INFO:     Uvicorn running on 
+http://0.0.0.0:8000 (Press 
+CTRL+C to quit)
+INFO:     127.0.0.1:62018 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62018 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50485 - "POST /index-pdf HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61290 - "POST /qa HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62422 - "POST /qa HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060 - "POST /index-pdf HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49212 - "POST /qa HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65097 - "POST /qa HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63121 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63121 - "GET /openapi.json HTTP/1.1" 200 OK
+could not convert string to 
+float: b'0.000-9832021' : 
+FloatObject 
+(b'0.000-9832021') invalid; 
+use 0.0 instead
+could not convert string to 
+float: b'0.00-108448105' : 
+FloatObject 
+(b'0.00-108448105') invalid; 
+use 0.0 instead
+INFO:     127.0.0.1:50060 - "POST /index-pdf HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56084 - "POST /qa HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60526 - "POST /index-pdf HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58738 - "POST /qa HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50903 - "POST /qa HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56391 - "POST /index-pdf HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60141 - "POST /qa HTTP/1.1" 200 OK
+could not convert string to 
+float: b'0.00-69589406' : 
+FloatObject 
+(b'0.00-69589406') invalid; 
+use 0.0 instead
+INFO:     127.0.0.1:59147 - "POST /index-pdf HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54081 - "POST /qa HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60627 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60627 - "GET /openapi.json HTTP/1.1" 200 OK
