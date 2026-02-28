@@ -28,30 +28,51 @@ def _extract_last_ai_content(messages: List[object]) -> str:
     return ""
 
 
-# Define agents at module level for reuse
-planning_agent = create_agent(
-    model=create_chat_model(),
-    tools=[],
-    system_prompt=PLANNING_SYSTEM_PROMPT,
-)
+# Internal private getters for lazy initialization
+_planning_agent = None
+_retrieval_agent = None
+_summarization_agent = None
+_verification_agent = None
 
-retrieval_agent = create_agent(
-    model=create_chat_model(),
-    tools=[retrieval_tool],
-    system_prompt=RETRIEVAL_SYSTEM_PROMPT,
-)
+def get_planning_agent():
+    global _planning_agent
+    if _planning_agent is None:
+        _planning_agent = create_agent(
+            model=create_chat_model(),
+            tools=[],
+            system_prompt=PLANNING_SYSTEM_PROMPT,
+        )
+    return _planning_agent
 
-summarization_agent = create_agent(
-    model=create_chat_model(),
-    tools=[],
-    system_prompt=SUMMARIZATION_SYSTEM_PROMPT,
-)
+def get_retrieval_agent():
+    global _retrieval_agent
+    if _retrieval_agent is None:
+        _retrieval_agent = create_agent(
+            model=create_chat_model(),
+            tools=[retrieval_tool],
+            system_prompt=RETRIEVAL_SYSTEM_PROMPT,
+        )
+    return _retrieval_agent
 
-verification_agent = create_agent(
-    model=create_chat_model(),
-    tools=[],
-    system_prompt=VERIFICATION_SYSTEM_PROMPT,
-)
+def get_summarization_agent():
+    global _summarization_agent
+    if _summarization_agent is None:
+        _summarization_agent = create_agent(
+            model=create_chat_model(),
+            tools=[],
+            system_prompt=SUMMARIZATION_SYSTEM_PROMPT,
+        )
+    return _summarization_agent
+
+def get_verification_agent():
+    global _verification_agent
+    if _verification_agent is None:
+        _verification_agent = create_agent(
+            model=create_chat_model(),
+            tools=[],
+            system_prompt=VERIFICATION_SYSTEM_PROMPT,
+        )
+    return _verification_agent
 
 
 def _parse_planning_output(content: str):
@@ -83,7 +104,8 @@ def planning_node(state: QAState) -> QAState:
     """
     question = state["question"]
 
-    result = planning_agent.invoke({"messages": [HumanMessage(content=question)]})
+    agent = get_planning_agent()
+    result = agent.invoke({"messages": [HumanMessage(content=question)]})
     content = _extract_last_ai_content(result.get("messages", []))
 
     plan, sub_questions = _parse_planning_output(content)
@@ -110,8 +132,9 @@ def retrieval_node(state: QAState) -> QAState:
     sub_questions = state.get("sub_questions") or [state["question"]]
     all_contexts = []
 
+    agent = get_retrieval_agent()
     for sq in sub_questions:
-        result = retrieval_agent.invoke({"messages": [HumanMessage(content=sq)]})
+        result = agent.invoke({"messages": [HumanMessage(content=sq)]})
         messages = result.get("messages", [])
 
         # Extract context from ToolMessage
@@ -141,7 +164,8 @@ def summarization_node(state: QAState) -> QAState:
 
     user_content = f"Question: {question}\n\nContext:\n{context}"
 
-    result = summarization_agent.invoke(
+    agent = get_summarization_agent()
+    result = agent.invoke(
         {"messages": [HumanMessage(content=user_content)]}
     )
     messages = result.get("messages", [])
@@ -174,7 +198,8 @@ Draft Answer:
 
 Please verify and correct the draft answer, removing any unsupported claims."""
 
-    result = verification_agent.invoke(
+    agent = get_verification_agent()
+    result = agent.invoke(
         {"messages": [HumanMessage(content=user_content)]}
     )
     messages = result.get("messages", [])

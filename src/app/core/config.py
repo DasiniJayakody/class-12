@@ -11,13 +11,13 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # OpenAI Configuration
-    openai_api_key: str
+    openai_api_key: str | None = None
     openai_model_name: str = "gpt-4o-mini"
     openai_embedding_model_name: str = "text-embedding-3-large"
 
     # Pinecone Configuration
-    pinecone_api_key: str
-    pinecone_index_name: str
+    pinecone_api_key: str | None = None
+    pinecone_index_name: str | None = None
 
     # Retrieval Configuration
     retrieval_k: int = 4

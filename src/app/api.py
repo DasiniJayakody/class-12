@@ -29,6 +29,16 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+async def root():
+    return {"message": "Strategic Multi-Agent RAG API is running."}
+
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "version": "0.1.0"}
+
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(
     request: Request, exc: Exception
