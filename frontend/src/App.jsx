@@ -30,8 +30,9 @@ function App() {
         setInput('');
         setIsAsking(true);
 
+        const apiBaseUrl = import.meta.env.VITE_API_URL || '';
         try {
-            const response = await fetch('/api/qa', {
+            const response = await fetch(`${apiBaseUrl}/qa`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ question: input })
@@ -71,8 +72,9 @@ function App() {
         const formData = new FormData();
         formData.append('file', file);
 
+        const apiBaseUrl = import.meta.env.VITE_API_URL || '';
         try {
-            const response = await fetch('/api/index-pdf', {
+            const response = await fetch(`${apiBaseUrl}/index-pdf`, {
                 method: 'POST',
                 body: formData
             });
