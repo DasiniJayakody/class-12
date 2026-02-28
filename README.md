@@ -381,8 +381,30 @@ building the application. The AI should then produce the code for the entire sys
 we've outlined. This approach demonstrates to newcomers how to translate a design into an
 implementation with the help of AI coding tools.
 
+## 6. Strategic Multi-Agent RAG (Query Decomposition)
 
-langchain-pymupdf4llm · PyPI
+Beyond basic RAG systems, complex questions often require multiple search steps or a structured plan to answer accurately. To handle this, we have implemented a **Strategic Multi-Agent RAG** pipeline using **LangGraph**.
+
+This advanced pipeline decomposes a user's initial question into targeted sub-queries, ensuring that the retrieval process is comprehensive and systematic.
+
+### Agent Workflow
+The pipeline consists of four specialized agents working in a linear sequence:
+
+1.  **Planning Agent**: Analyzes the user's question and creates a strategic plan by decomposing it into specific, searchable sub-questions.
+2.  **Retrieval Agent**: Takes the plan and performs targeted similarity searches in Pinecone for each sub-question, gathering a broad base of relevant context.
+3.  **Summarization Agent**: Synthesizes the retrieved technical information into a coherent, comprehensive draft answer.
+4.  **Verification Agent**: Performs a final check on the draft answer to ensure accuracy, technical correctness, and adherence to the source material before returning it to the user.
+
+### Why use Query Decomposition?
+*   **Completeness**: Ensures all facets of a complex question are addressed by searching for each component individually.
+*   **Precision**: Reduces "noise" in retrieval by using more targeted, simpler search queries instead of one long, complex sentence.
+*   **Reasoning**: Mimics human research strategies by planning before acting, leading to higher-quality answers for technical documents.
+
+### Interaction
+You can interact with this enhanced pipeline via the `/qa` endpoint or through the updated frontend dashboard, which now displays the generated search plan and sub-questions alongside the final answer.
+
+## References
+
 https://pypi.org/project/langchain-pymupdf4llm/
 
 Building a Vector Store from PDFs documents using Pinecone and LangChain | by Alex Rodrigues |
