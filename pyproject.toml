@@ -19,3 +19,6 @@ dependencies = [
     "python-multipart>=0.0.20",
     "uvicorn>=0.38.0",
 ]
+
+[project.scripts]
+app = "src.app.api:app"
